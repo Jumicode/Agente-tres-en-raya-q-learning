@@ -1,194 +1,119 @@
-# AI.PY: Archivo que contiene la lógica del agente AI para el tres en raya."
-from game.logic import LogicaTresRayas
-from copy import deepcopy
-import time
+import random
+import pickle
+import os
 
-# --- MEMORIA GLOBAL (CACHE) ---
-CACHE_MINIMAX = {}
+# Definimos constantes para el aprendizaje
+ARCHIVO_Q_TABLE = "conocimiento_gato.pkl"
 
-def limpiar_cache():
-    """Limpia la memoria para reiniciar partida"""
-    CACHE_MINIMAX.clear()
-
-    #Para evaluación del tiempo que tarda la IA en 
-    print("\n" + "="*65)
-    print("\n" "Control velocidad de respuesta de la AI")
-    print(f"{'TURNO':^10} | {'JUGADOR':^10} | {'TIEMPO (s)':^15} | {'EVALUACION':^15}")
-    print("-" * 65)
-
-def minimax(tablero, profundidad, es_turno_max):
-    """
-    Algoritmo Minimax estándar.
-    Retorna el puntaje de utilidad del tablero dado.
-    """
-    # Usamos tupla para que sea hashable en el diccionario
-    estado_clave = (tuple(tablero), es_turno_max)
-    
-    if estado_clave in CACHE_MINIMAX:
-        return CACHE_MINIMAX[estado_clave]
-
-    juego = LogicaTresRayas()
-    juego.tablero = list(tablero)
-    ganador = juego.verificar_ganador()
-
-    # Evaluación estática
-    if ganador == "X":
-        return 10 - profundidad
-    elif ganador == "O":
-        return profundidad - 10
-    elif not juego.existe_espacio_libre():
-        return 0
-
-    # Recursión
-    movimientos = juego.obtener_movimientos_posibles()
-    
-    if es_turno_max: # Turno de la IA (X)
-        mejor_puntaje = -float('inf')
-        for mov in movimientos:
-            juego.tablero[mov] = "X"
-            puntaje = minimax(juego.tablero, profundidad + 1, False)
-            juego.tablero[mov] = " " # Backtracking
-            mejor_puntaje = max(mejor_puntaje, puntaje)
-    else: # Turno del Humano (O)
-        mejor_puntaje = float('inf')
-        for mov in movimientos:
-            juego.tablero[mov] = "O"
-            puntaje = minimax(juego.tablero, profundidad + 1, True)
-            juego.tablero[mov] = " " # Backtracking
-            mejor_puntaje = min(mejor_puntaje, puntaje)
-    
-    CACHE_MINIMAX[estado_clave] = mejor_puntaje
-    return mejor_puntaje
-
-def ia_decidir_movimiento(tablero):
-    """
-    Decide el mejor movimiento para la IA en el estado actual.
-    Retorna: (mejor_movimiento, datos_visuales_no_usados)
-    """
-    tiempo_inicio = time.time()
-
-    mejor_puntaje = -float('inf')
-    mejor_movimiento = None
-    
-    # Probamos todas las opciones disponibles
-    for movimiento in range(9):
-        if tablero[movimiento] == " ":
-            tablero_copia = list(tablero)
-            tablero_copia[movimiento] = "X"
-            
-            # Calculamos qué tan buena es esta jugada
-            puntaje = minimax(tablero_copia, 0, False)
-            
-            if puntaje > mejor_puntaje:
-                mejor_puntaje = puntaje
-                mejor_movimiento = movimiento
-
-
-    tiempo_fin = time.time()
-    duracion = tiempo_fin - tiempo_inicio    
-
-    fichas_puestas = 9 - tablero.count(" ")
-    numero_turno = fichas_puestas + 1
-    
-    # 4. IMPRIMIR FILA EN LA CONSOLA
-    # Formato: Turno | Jugador | Tiempo con 6 decimales | Puntaje esperado
-    print(f"{numero_turno:^10} | {'IA (X)':^10} | {duracion:^15.6f} | {mejor_puntaje:^15}")
+class QAgent:
+    def __init__(self, alpha=0.5, gamma=0.9, epsilon=1.0):
+        """
+        Inicializa al agente (El Gato).
+        :param alpha: Tasa de aprendizaje (0 = no aprende nada, 1 = olvida lo viejo por lo nuevo).
+        :param gamma: Factor de descuento (importancia del futuro).
+        :param epsilon: Probabilidad de explorar (1.0 = 100% aleatorio al inicio).
+        """
+        self.q_table = {}  # Aquí se guarda la "Memoria" del gato
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.9995 # Velocidad a la que deja de ser curioso
         
-    return mejor_movimiento, []
+        # Intentamos cargar cerebro previo si existe
+        self.cargar_conocimiento()
 
-# ---------------------------------------------------------
-#  NUEVA FUNCIÓN DE VISUALIZACIÓN UNIFICADA 
-# ---------------------------------------------------------
+    def obtener_estado(self, tablero):
+        """Convierte la lista del tablero en una Tupla (inmutable) para usarla de clave."""
+        return tuple(tablero)
 
-def generar_arbol_visual(tablero_final):
-    """
-    Reconstruye la historia de la partida para generar el árbol visual completo.
-    
-    Lógica:
-    1. Deduce el orden de los movimientos realizados en 'tablero_final'.
-    2. Simula la partida desde el tablero vacío.
-    3. En CADA turno, genera todos los hijos posibles (abanico).
-    4. Marca el hijo que coincide con la jugada real como 'es_camino_ganador'.
-    5. Solo ese hijo real tendrá 'sub_ramas' (el siguiente nivel).
-    """
-    
-    # 1. Deducir la secuencia de jugadas (Ingeniería inversa simple)
-    # Asumimos X empieza. Buscamos qué fichas hay puestas.
-    # Nota: Como el orden exacto no se guarda en el tablero estático, 
-    # esta reconstrucción asume un orden secuencial lógico para visualización.
-    # Si quieres precisión histórica exacta, deberías pasar el historial real desde main.py.
-    # Pero para mantener compatibilidad con tu código actual, usamos la lógica de reconstrucción.
-    
-    secuencia_reconstruida = []
-    tablero_temp = [" "]*9
-    copia_final = list(tablero_final)
-    total_fichas = sum(1 for c in copia_final if c != " ")
-    
-    for _ in range(total_fichas):
-        turno_actual = "X" if len(secuencia_reconstruida) % 2 == 0 else "O"
+    def obtener_accion(self, tablero, movimientos_posibles, en_entrenamiento=True):
+        """
+        Decide qué movimiento hacer usando la estrategia Epsilon-Greedy.
+        """
+        estado = self.obtener_estado(tablero)
+
+        # 1. Fase de EXPLORACIÓN (Curiosidad)
+        # Si estamos entrenando y sale un número menor a epsilon, elegimos al azar.
+        if en_entrenamiento and random.uniform(0, 1) < self.epsilon:
+            return random.choice(movimientos_posibles)
+
+        # 2. Fase de EXPLOTACIÓN (Usar conocimiento)
+        # Si el estado no existe en memoria, inicializamos con ceros
+        if estado not in self.q_table:
+            self.q_table[estado] = {mov: 0.0 for mov in movimientos_posibles}
+
+        # Buscamos el movimiento con el valor más alto en la tabla Q para este estado
+        # Si hay varios empates, elige uno al azar entre los mejores
+        valores_movimientos = self.q_table[estado]
         
-        # Buscamos la primera diferencia entre el tablero vacío temporal y el final
-        # Si el tablero final es el resultado de una partida,
-        # esta lógica reconstruye el camino jugado.
-        movimiento_encontrado = None
+        # Filtramos solo los movimientos válidos actuales
+        valores_validos = {m: valores_movimientos.get(m, 0.0) for m in movimientos_posibles}
         
-        # Esta heurística simple busca la primera casilla que coincida.
-        # Funciona visualmente para mostrar un camino válido.
-        for i in range(9):
-            if copia_final[i] == turno_actual and tablero_temp[i] == " ":
-                movimiento_encontrado = i
-                break
+        max_valor = max(valores_validos.values())
+        mejores_movimientos = [m for m, v in valores_validos.items() if v == max_valor]
         
-        if movimiento_encontrado is not None:
-            secuencia_reconstruida.append((movimiento_encontrado, turno_actual))
-            tablero_temp[movimiento_encontrado] = turno_actual
+        return random.choice(mejores_movimientos)
+
+    def aprender(self, estado_actual, accion, recompensa, estado_siguiente, movimientos_siguientes, termino_juego):
+        """
+        Aplica la ECUACIÓN DE BELLMAN para actualizar la Q-Table.
+        """
+        estado_t = self.obtener_estado(estado_actual)
+        estado_t1 = self.obtener_estado(estado_siguiente)
+
+        # Asegurar que los estados existan en la tabla
+        if estado_t not in self.q_table:
+            self.q_table[estado_t] = {accion: 0.0} # Se expandirá luego si hay más acciones
+        if estado_t1 not in self.q_table:
+            # Inicializamos el siguiente estado con ceros para sus posibles acciones
+            self.q_table[estado_t1] = {m: 0.0 for m in movimientos_siguientes}
+
+        # Valor actual (Viejo)
+        q_actual = self.q_table[estado_t].get(accion, 0.0)
+
+        # Valor futuro máximo (El mejor movimiento que podría hacer después)
+        if termino_juego:
+            max_q_futuro = 0.0 # No hay futuro si el juego terminó
         else:
-            break
+            # Buscamos el max valor entre las opciones del siguiente estado
+            # Nota: Si movimientos_siguientes está vacío, max_q es 0
+            vals_siguientes = [self.q_table[estado_t1].get(m, 0.0) for m in movimientos_siguientes]
+            max_q_futuro = max(vals_siguientes) if vals_siguientes else 0.0
 
-    # 2. Construir el Árbol Recursivo (Nivel por Nivel)
-    def construir_nivel_recursivo(tablero_actual, paso_idx):
-        # Condición de parada: Si ya llegamos al final de la historia
-        if paso_idx >= len(secuencia_reconstruida):
-            return []
-
-        mov_real, turno_quien_jugo = secuencia_reconstruida[paso_idx]
+        # --- ECUACIÓN DE BELLMAN ---
+        # Q(s,a) = Q(s,a) + alpha * (Recompensa + gamma * max(Q(s')) - Q(s,a))
+        nuevo_q = q_actual + self.alpha * (recompensa + (self.gamma * max_q_futuro) - q_actual)
         
-        # Generar todos los posibles movimientos desde este estado
-        nodos_hermanos = []
-        movimientos_posibles = [i for i, c in enumerate(tablero_actual) if c == " "]
-        
-        nodo_camino_real = None
+        # Actualizamos la tabla
+        self.q_table[estado_t][accion] = nuevo_q
 
-        for mov in movimientos_posibles:
-            t_futuro = list(tablero_actual)
-            t_futuro[mov] = turno_quien_jugo
-            
-            # Calculamos puntaje
-            es_turno_max_siguiente = (turno_quien_jugo == "O") # Si jugó O, le toca a X (MAX)
-            puntaje = minimax(t_futuro, 0, es_turno_max_siguiente)
-            
-            es_el_elegido = (mov == mov_real)
-            
-            nodo = {
-                "movimiento": mov,
-                "tablero": t_futuro,
-                "puntaje": puntaje,
-                "es_camino_ganador": es_el_elegido, # Marca dorada
-                "sub_ramas": [] 
-            }
-            nodos_hermanos.append(nodo)
-            
-            if es_el_elegido:
-                nodo_camino_real = nodo
-        
-        # RECURSIVIDAD: Solo el nodo real genera el siguiente nivel
-        if nodo_camino_real:
-            nodo_camino_real["sub_ramas"] = construir_nivel_recursivo(
-                nodo_camino_real["tablero"], 
-                paso_idx + 1
-            )
-            
-        return nodos_hermanos
+    def reducir_epsilon(self):
+        """Reduce la curiosidad del gato poco a poco después de cada partida."""
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
 
-    # Arrancamos desde tablero vacío
-    return construir_nivel_recursivo([" "]*9, 0)
+    def guardar_conocimiento(self):
+        """Guarda la Q-Table en un archivo."""
+        try:
+            with open(ARCHIVO_Q_TABLE, "wb") as f:
+                pickle.dump(self.q_table, f)
+            print(f"Cerebro guardado: {len(self.q_table)} estados aprendidos.")
+        except Exception as e:
+            print(f"Error guardando cerebro: {e}")
+
+    def cargar_conocimiento(self):
+        """Carga la Q-Table desde un archivo."""
+        if os.path.exists(ARCHIVO_Q_TABLE):
+            try:
+                with open(ARCHIVO_Q_TABLE, "rb") as f:
+                    self.q_table = pickle.load(f)
+                print(f"Cerebro cargado con éxito. Estados conocidos: {len(self.q_table)}")
+                # Si cargamos un cerebro, bajamos epsilon porque ya sabe jugar
+                self.epsilon = 0.2 
+            except Exception as e:
+                print(f"Error cargando cerebro: {e}")
+                self.q_table = {}
+
+# Instancia global para usar en main.py
+agente_global = QAgent()
