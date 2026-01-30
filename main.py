@@ -22,6 +22,15 @@ def main():
     pygame.mixer.init()
     establecer_icono_ventana() 
     iniciar_musica_fondo()
+
+    p_q= 0
+    p_m= 0
+    empates_ai = 0
+    
+    # Set 2: Humano vs IA
+    p_human = 0
+    p_ia_vs_h = 0
+    empates_h = 0
     
     # CONFIGURAR VENTANA PRINCIPAL
     pantalla_principal = pygame.display.set_mode((ANCHO_VENTANA, ALTO_VENTANA))
@@ -69,10 +78,9 @@ def main():
 
             # 1. DIBUJAR INTERFAZ SEGÚN MODO DE JUEGO
             if modo_juego == "HUMANO":
-                ui.dibujar_interfaz_humano(juego.tablero, mensaje_estado, juego.combo_ganador)
+                ui.dibujar_interfaz_humano(juego.tablero, mensaje_estado, p_human, p_ia_vs_h, empates_h, juego.combo_ganador)
             else:
-                # MODO MINIMAX VS Q-LEARNING
-                ui.dibujar_interfaz_minimax(juego.tablero, mensaje_estado, estructura_arbol, juego.combo_ganador)
+                ui.dibujar_interfaz_minimax(juego.tablero, mensaje_estado, p_q, p_m, empates_ai, estructura_arbol, juego.combo_ganador)
 
             # 2. GESTIONAR EVENTOS DE USUARIO
             evento = ui.obtener_evento_usuario()
@@ -96,14 +104,32 @@ def main():
                 continue
             
             # VERIFICAR ESTADO FINAL DEL JUEGO
-            if juego.juego_terminado():
+            if juego.juego_terminado() and not juego_terminado_flag:
                 ganador = juego.verificar_ganador()
-                if ganador == "X":
-                    mensaje_estado = "¡Perdiste! Ganó la IA."
-                elif ganador == "O":
-                    mensaje_estado = "¡Ganaste! Increíble."
-                else:
-                    mensaje_estado = "¡Empate!"
+                                
+                if modo_juego == "HUMANO":
+                    if ganador == "X": 
+                        p_ia_vs_h += 1
+                        mensaje_estado = "¡Perdiste! Ganó la IA."
+                    elif ganador == "O": 
+                        p_human += 1 
+                        mensaje_estado = "¡Ganaste!"
+                    else: 
+                        empates_h += 1 
+                        mensaje_estado = "¡Empate!"
+                        if 'draw' in ui.sonidos: ui.sonidos['draw'].play()
+                else: 
+                    # Modo IA vs IA
+                    if ganador == "X": 
+                        p_q_vs_m += 1
+                        mensaje_estado = "Ganó Q-Learning (X)"
+                    elif ganador == "O": 
+                        p_m_vs_q += 1
+                        mensaje_estado = "Ganó Minimax (O)"
+                    else: 
+                        empates_ai += 1 
+                        mensaje_estado = "¡Empate!"
+                        if 'draw' in ui.sonidos: ui.sonidos['draw'].play()
 
                 if ganador and 'win' in ui.sonidos:
                     ui.sonidos['win'].play()
@@ -115,7 +141,10 @@ def main():
             # TURNO DE LA IA (Q-LEARNING)
             if turno == "X":
                 if modo_juego == "HUMANO":
-                    ui.dibujar_interfaz_humano(juego.tablero, "IA Pensando...", juego.combo_ganador)
+                    ui.dibujar_interfaz_humano(juego.tablero, mensaje_estado, p_human, p_ia_vs_h, empates_h, juego.combo_ganador)
+                else:
+                    ui.dibujar_interfaz_minimax(juego.tablero, mensaje_estado, p_q, p_m, empates_ai, estructura_arbol, juego.combo_ganador)
+
                 pygame.display.flip()
                 
                 time.sleep(0.5) 
@@ -141,7 +170,7 @@ def main():
             else:
 
                 if modo_juego == "MINIMAX":
-                    ui.dibujar_interfaz_minimax(juego.tablero, mensaje_estado, estructura_arbol, juego.combo_ganador)
+                    ui.dibujar_interfaz_minimax(juego.tablero, mensaje_estado, p_q, p_m, empates_ai, estructura_arbol, juego.combo_ganador)
                     pygame.display.flip()
                     time.sleep(0.5)
                     movimiento = obtener_movimiento_minimax_adaptable(juego.tablero, "O")
