@@ -4,6 +4,10 @@ import pygame
 import os
 from ui.config import *
 
+# ------------------------------
+# CARGAR FONDOS
+# Carga y escala la imagen de fondo para el tablero de juego.
+# ------------------------------
 def cargar_fondos(): 
     ruta_fondo = os.path.join(os.path.dirname(__file__), '..', 'assets', 'fondo_tablero.png')
     try:
@@ -13,7 +17,11 @@ def cargar_fondos():
     except Exception as e:
         print(f"Error cargando fondo: {e}")
         return None 
-    
+
+# ------------------------------
+# CARGAR FONDO MENÚ
+# Carga y escala la imagen de fondo para la pantalla principal.
+# ------------------------------
 def cargar_fondo_menu(): 
     ruta_fondo = os.path.join(os.path.dirname(__file__), '..', 'assets', 'fondo_menu.png')
     try:
@@ -24,6 +32,10 @@ def cargar_fondo_menu():
         print(f"Error cargando fondo: {e}")
         return None 
 
+# ------------------------------
+# CARGAR ICONOS
+# Importa y redimensiona los íconos de los botones (home, reiniciar y árbol).
+# ------------------------------
 def cargar_iconos(): 
     ruta_assets = os.path.join(os.path.dirname(__file__), '..', 'assets', 'icon')
     try:
@@ -32,15 +44,20 @@ def cargar_iconos():
             
         icon_reload = pygame.image.load(os.path.join(ruta_assets, "reload_icon.png"))
         icon_reload = pygame.transform.scale(icon_reload, (30, 30))
-        
-        return icon_home, icon_reload 
-    except Exception as e:
-        print(f"AVISO: No se encontraron los iconos PNG en {ruta_assets}. Error: {e}")
-        return None, None 
-    
 
+        icon_tree = pygame.image.load(os.path.join(ruta_assets, "tree_icon.png"))
+        icon_tree = pygame.transform.scale(icon_tree, (30, 30))
+        
+        return icon_home, icon_reload, icon_tree
+    except:
+        print("AVISO: Faltan iconos PNG.")
+        return None, None, None
+    
+# ------------------------------
+# CARGAR IMÁGENES GATO
+# Importa las fotos del avatar con sus diferentes estados de ánimo.
+# ------------------------------
 def cargar_imagenes_gato():
-    """Carga todas las expresiones del gato y las devuelve en un diccionario"""
     emociones = {
         "neutro": "gato_neutro.png",
         "pensando": "gato_pensando.png",
@@ -51,17 +68,22 @@ def cargar_imagenes_gato():
     imagenes_cargadas = {}
     ruta_base = os.path.join(os.path.dirname(__file__), '..', 'assets', 'gato_expresiones')
 
-    for clave, nombre in emociones.items():
-        ruta_completa = os.path.join(ruta_base, nombre)
-        try:
-            img = pygame.image.load(ruta_completa)
-            img = pygame.transform.scale(img, (380, 440))
-            imagenes_cargadas[clave] = img
-        except Exception as e:
-            print(f"Error al cargar la expresión {clave}: {e}")
-            imagenes_cargadas[clave] = None
-            
-    return imagenes_cargadas 
+    sets = {"q": {}, "m": {}}
+
+    for ai in ["q", "m"]:
+        for emo in emociones:
+            nombre_archivo = f"gato_{emo}_{ai}.png"
+            ruta_completa = os.path.join(ruta_base, nombre_archivo)
+            try:
+                img = pygame.image.load(ruta_completa)
+                # Tamaño original para modo humano
+                img = pygame.transform.scale(img, (380, 440))
+                sets[ai][emo] = img
+            except:
+                print(f"Error cargando {nombre_archivo}")
+                sets[ai][emo] = None
+                
+    return sets
 
 # ------------------------------
 # Carga y establece el icono de la ventana del juego.
