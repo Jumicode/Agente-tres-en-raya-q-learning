@@ -155,7 +155,7 @@ class QAgent:
                 print(f" Error cargando cerebro JSON: {e}")
                 self.q_table = {}
         else:
-            print("⚠️ No hay cerebro guardado. Se inicia desde cero.")
+            print("No hay cerebro guardado.")
 
 # Instancia global del Q-Agent
 agente_global = QAgent()
