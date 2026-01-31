@@ -248,37 +248,22 @@ def obtener_movimiento_minimax_adaptable(tablero, ficha_jugador):
 # SECCIÓN 3: VISUALIZACIÓN (Legado)
 # =============================================================================
 
-def generar_arbol_visual(tablero_final):
+def generar_arbol_visual(historial):
     """
-    Reconstruye la historia y genera datos para dibujar el árbol de decisión (usado en v1).
+    Genera el árbol de decisiones basándose en la secuencia REAL de movimientos.
+    :param historial: Lista de enteros [4, 0, 2...] con las posiciones jugadas.
     """
-    secuencia_reconstruida = []
-    tablero_temp = [" "]*9
-    copia_final = list(tablero_final)
-    total_fichas = sum(1 for c in copia_final if c != " ")
     
-    # 1. Ingeniería Inversa
-    for _ in range(total_fichas):
-        turno_actual = "X" if len(secuencia_reconstruida) % 2 == 0 else "O"
-        movimiento_encontrado = None
-        for i in range(9):
-            if copia_final[i] == turno_actual and tablero_temp[i] == " ":
-                movimiento_encontrado = i
-                break
-        if movimiento_encontrado is not None:
-            secuencia_reconstruida.append((movimiento_encontrado, turno_actual))
-            tablero_temp[movimiento_encontrado] = turno_actual
-        else:
-            break
-
-    # 2. Construcción Recursiva
     def construir_nivel_recursivo(tablero_actual, paso_idx):
-        if paso_idx >= len(secuencia_reconstruida):
+        if paso_idx >= len(historial):
             return []
 
-        mov_real, turno_quien_jugo = secuencia_reconstruida[paso_idx]
+        mov_real = historial[paso_idx]
+        turno_quien_jugo = "X" if paso_idx % 2 == 0 else "O"
+        
         nodos_hermanos = []
         movimientos_posibles = [i for i, c in enumerate(tablero_actual) if c == " "]
+        
         nodo_camino_real = None
 
         for mov in movimientos_posibles:
@@ -287,6 +272,7 @@ def generar_arbol_visual(tablero_final):
             
             es_turno_max_siguiente = (turno_quien_jugo == "O")
             puntaje = minimax(t_futuro, 0, es_turno_max_siguiente)
+            
             es_el_elegido = (mov == mov_real)
             
             nodo = {
@@ -297,6 +283,7 @@ def generar_arbol_visual(tablero_final):
                 "sub_ramas": [] 
             }
             nodos_hermanos.append(nodo)
+            
             if es_el_elegido:
                 nodo_camino_real = nodo
         
