@@ -249,10 +249,6 @@ def obtener_movimiento_minimax_adaptable(tablero, ficha_jugador):
 # =============================================================================
 
 def generar_arbol_visual(historial):
-    """
-    Genera el árbol de decisiones basándose en la secuencia REAL de movimientos.
-    :param historial: Lista de enteros [4, 0, 2...] con las posiciones jugadas.
-    """
     
     def construir_nivel_recursivo(tablero_actual, paso_idx):
         if paso_idx >= len(historial):
