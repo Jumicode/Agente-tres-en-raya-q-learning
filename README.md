@@ -2,7 +2,7 @@
 
 ![Banner](https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Banner](https://img.shields.io/badge/Pygame-CE-purple?style=for-the-badge&logo=sdl&logoColor=white)
-![Banner](https://img.shields.io/badge/AI-Minimax-red?style=for-the-badge)
+![Banner](https://img.shields.io/badge/AI-qlearning-red?style=for-the-badge)
 
 > **TRES EN RAYAS:** Enfréntate a una Inteligencia Artificial de Machine Learning y observa cómo compite contra el agente Minimax
 
